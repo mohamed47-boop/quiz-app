@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            padding: 10px 25px;
+            background: #eee;
+            color: #333;
+            text-decoration: none;
+            border-radius: 25px;
+            margin: 5px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .lecture-item {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .question-form {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-right: 5px solid #667eea;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #eee;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Admin Panel</h1>
+            <div class="nav-links">
+                <a href="index.html">🏠 Home Page</a>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('lectures')">📚 Lectures</button>
+            <button class="tab" onclick="showTab('add')">➕ Add Lecture</button>
+        </div>
+
+        <div id="lectures" class="section">
+            <h2>Lectures</h2>
+            <div id="lectures-list"></div>
+        </div>
+
+        <div id="add" class="section hidden">
+            <h2>Add New Lecture</h2>
+            <form id="lecture-form">
+                <div class="form-group">
+                    <label>Lecture Title</label>
+                    <input type="text" id="lecture-title" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="lecture-desc"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="questions-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Manage Questions</h2>
+            <button class="btn btn-success" onclick="addQuestionForm()">➕ Add Question</button>
+            <div id="questions-container" style="margin-top: 20px;"></div>
+            <button class="btn btn-secondary" onclick="closeModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // 🔥 FIREBASE CONFIG - YOUR PROJECT
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBiL71yGgcPtDPHodtVTm4Ab0BtJIEokA",
+            authDomain: "quiz-app-95b33.firebaseapp.com",
+            projectId: "quiz-app-95b33",
+            storageBucket: "quiz-app-95b33.firebasestorage.app",
+            messagingSenderId: "717714444581",
+            appId: "1:717714444581:web:af0ea509f3bbe7d5f60acc",
+            measurementId: "G-2RJE4KGZTE"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentLectureId = null;
+        let questionCount = 0;
+
+        window.onload = function() {
+            loadLectures();
+        };
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            event.target.classList.add('active');
+            document.getElementById(tab).classList.remove('hidden');
+        }
+
+        function loadLectures() {
+            db.collection('lectures').get().then(snapshot => {
+                const container = document.getElementById('lectures-list');
+                container.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    container.innerHTML = '<p>No lectures yet</p>';
+                    return;
+                }
+                
+                snapshot.forEach(doc => {
+                    const lecture = doc.data();
+                    const div = document.createElement('div');
+                    div.className = 'lecture-item';
+                    div.innerHTML = `
+                        <div>
+                            <h3>${lecture.title}</h3>
+                            <p>${lecture.description || ''} - ${lecture.questionCount || 0} questions</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="openQuestions('${doc.id}', '${lecture.title}')">Questions</button>
+                            <button class="btn btn-danger" onclick="deleteLecture('${doc.id}')">Delete</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        document.getElementById('lecture-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const title = document.getElementById('lecture-title').value;
+            const desc = document.getElementById('lecture-desc').value;
+            
+            db.collection('lectures').add({
+                title: title,
+                description: desc,
+                questionCount: 0,
+                createdAt: new Date()
+            }).then(() => {
+                alert('Lecture added successfully');
+                document.getElementById('lecture-form').reset();
+                loadLectures();
+                showTab('lectures');
+            });
+        });
+
+        function deleteLecture(id) {
+            if (!confirm('Are you sure?')) return;
+            db.collection('lectures').doc(id).delete().then(() => {
+                loadLectures();
+            });
+        }
+
+        function openQuestions(lectureId, title) {
+            currentLectureId = lectureId;
+            document.getElementById('modal-title').textContent = 'Questions: ' + title;
+            document.getElementById('questions-modal').style.display = 'flex';
+            loadQuestions();
+        }
+
+        function closeModal() {
+            document.getElementById('questions-modal').style.display = 'none';
+        }
+
+        function loadQuestions() {
+            db.collection('lectures').doc(currentLectureId).collection('questions').get()
+                .then(snapshot => {
+                    const container = document.getElementById('questions-container');
+                    container.innerHTML = '';
+                    questionCount = snapshot.size;
+                    
+                    if (snapshot.empty) {
+                        container.innerHTML = '<p>No questions yet</p>';
+                    }
+                    
+                    snapshot.forEach((doc, i) => {
+                        const q = doc.data();
+                        container.appendChild(createQuestionForm(doc.id, q, i + 1));
+                    });
+                });
+        }
+
+        function addQuestionForm() {
+            const container = document.getElementById('questions-container');
+            const emptyMsg = container.querySelector('p');
+            if (emptyMsg) emptyMsg.remove();
+            
+            questionCount++;
+            container.appendChild(createQuestionForm(null, null, questionCount, true));
+        }
+
+        function createQuestionForm(id, data, num, isNew = false) {
+            const div = document.createElement('div');
+            div.className = 'question-form';
+            div.innerHTML = `
+                <h4>${isNew ? 'New Question' : 'Question ' + num}</h4>
+                <div class="form-group">
+                    <label>Question Text</label>
+                    <input type="text" class="q-text" value="${data ? data.question : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Option A</label>
+                    <input type="text" class="q-opt0" value="${data ? data.options[0] : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Option B</label>
+                    <input type="text" class="q-opt1" value="${data ? data.options[1] : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Option C</label>
+                    <input type="text" class="q-opt2" value="${data ? data.options[2] : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Option D</label>
+                    <input type="text" class="q-opt3" value="${data ? data.options[3] : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Correct Answer</label>
+                    <select class="q-correct">
+                        <option value="0" ${data && data.correctAnswer === 0 ? 'selected' : ''}>A</option>
+                        <option value="1" ${data && data.correctAnswer === 1 ? 'selected' : ''}>B</option>
+                        <option value="2" ${data && data.correctAnswer === 2 ? 'selected' : ''}>C</option>
+                        <option value="3" ${data && data.correctAnswer === 3 ? 'selected' : ''}>D</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Explanation (optional)</label>
+                    <textarea class="q-exp">${data ? data.explanation || '' : ''}</textarea>
+                </div>
+                <button class="btn btn-primary" onclick="${isNew ? 'saveNew(this)' : `update('${id}', this)`}">
+                    ${isNew ? 'Save' : 'Update'}
+                </button>
+                ${!isNew ? `<button class="btn btn-danger" onclick="deleteQ('${id}')">Delete</button>` : ''}
+            `;
+            return div;
+        }
+
+        function saveNew(btn) {
+            const form = btn.parentElement;
+            const data = getQData(form);
+            if (!data) return;
+            
+            db.collection('lectures').doc(currentLectureId).collection('questions').add({
+                ...data,
+                order: questionCount,
+                createdAt: new Date()
+            }).then(() => {
+                db.collection('lectures').doc(currentLectureId).update({
+                    questionCount: firebase.firestore.FieldValue.increment(1)
+                });
+                loadQuestions();
+                loadLectures();
+            });
+        }
+
+        function update(id, btn) {
+            const form = btn.parentElement;
+            const data = getQData(form);
+            if (!data) return;
+            
+            db.collection('lectures').doc(currentLectureId).collection('questions').doc(id).update(data)
+                .then(() => alert('Updated successfully'));
+        }
+
+        function deleteQ(id) {
+            if (!confirm('Are you sure?')) return;
+            db.collection('lectures').doc(currentLectureId).collection('questions').doc(id).delete()
+                .then(() => {
+                    db.collection('lectures').doc(currentLectureId).update({
+                        questionCount: firebase.firestore.FieldValue.increment(-1)
+                    });
+                    loadQuestions();
+                    loadLectures();
+                });
+        }
+
+        function getQData(form) {
+            const question = form.querySelector('.q-text').value.trim();
+            const options = [
+                form.querySelector('.q-opt0').value.trim(),
+                form.querySelector('.q-opt1').value.trim(),
+                form.querySelector('.q-opt2').value.trim(),
+                form.querySelector('.q-opt3').value.trim()
+            ];
+            const correctAnswer = parseInt(form.querySelector('.q-correct').value);
+            const explanation = form.querySelector('.q-exp').value.trim();
+            
+            if (!question || options.some(o => !o)) {
+                alert('Please fill all fields');
+                return null;
+            }
+            
+            return { question, options, correctAnswer, explanation };
+        }
+    </script>
+</body>
+</html>
