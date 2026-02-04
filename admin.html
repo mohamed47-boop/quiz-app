@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Medical Quiz Platform</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+        }
+
+        .nav-links {
+            margin-top: 20px;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            padding: 10px 25px;
+            background: #eee;
+            color: #333;
+            text-decoration: none;
+            border-radius: 25px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .breadcrumb {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .breadcrumb a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb .current {
+            color: #666;
+            font-weight: bold;
+        }
+
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .folder-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .folder-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .folder-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .folder-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .folder-meta {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .quiz-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid #667eea;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .quiz-card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+
+        .quiz-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .quiz-meta {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #eee;
+            color: #333;
+        }
+
+        .add-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            background: #e8eeff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .paste-area {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+
+        .preview-section {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .question-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-right: 4px solid #667eea;
+        }
+
+        .correct-answer {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .folder-card {
+            position: relative;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .type-folder {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .type-quiz {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>⚙️ Admin Panel</h1>
+            <p>Manage Years, Semesters, Subjects, and Quizzes</p>
+            <div class="nav-links">
+                <a href="index.html">🏠 Student View</a>
+            </div>
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb" id="breadcrumb">
+            <a href="#" onclick="goHome()">Home</a>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content">
+            <!-- Dynamic content loaded here -->
+        </div>
+    </div>
+
+    <!-- Add Folder Modal -->
+    <div id="folder-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Folder</h2>
+                <button class="close-btn" onclick="closeModal('folder-modal')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Folder Name</label>
+                <input type="text" id="folder-name" placeholder="e.g., Year 1, Semester 1, Anatomy">
+            </div>
+            <button class="btn btn-primary" onclick="createFolder()">Create Folder</button>
+        </div>
+    </div>
+
+    <!-- Add Quiz Modal -->
+    <div id="quiz-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Quiz</h2>
+                <button class="close-btn" onclick="closeModal('quiz-modal')">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Quiz Title</label>
+                <input type="text" id="quiz-title" placeholder="e.g., Quiz 1: Cell Biology">
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showQuizTab('upload')">📁 Upload File</button>
+                <button class="tab" onclick="showQuizTab('paste')">📝 Paste Text</button>
+                <button class="tab" onclick="showQuizTab('manual')">✋ Manual</button>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="quiz-upload" class="quiz-tab">
+                <div class="upload-area" onclick="document.getElementById('quiz-file').click()">
+                    <div style="font-size: 3em;">📄</div>
+                    <h3>Click to Upload .txt File</h3>
+                    <p>Or drag and drop</p>
+                    <input type="file" id="quiz-file" class="file-input" accept=".txt" onchange="handleQuizFile(event)">
+                </div>
+            </div>
+
+            <!-- Paste Tab -->
+            <div id="quiz-paste" class="quiz-tab hidden">
+                <textarea class="paste-area" id="paste-text" placeholder="Paste your questions here...
+
+Question: Which vitamin is responsible for night vision?
+A) Vitamin A
+B) Vitamin B
+C) Vitamin C
+D) Vitamin D
+Correct: A
+Explanation: Vitamin A is responsible for night vision
+
+Question: What is the function of Vitamin C?
+A) Blood clotting
+B) Collagen synthesis
+C) Calcium absorption
+D) Energy production
+Correct: B
+Explanation: Vitamin C is essential for collagen synthesis"></textarea>
+                <button class="btn btn-primary" onclick="parsePastedText()">Parse Questions</button>
+            </div>
+
+            <!-- Manual Tab -->
+            <div id="quiz-manual" class="quiz-tab hidden">
+                <p>Manual question entry will be available after creating the quiz.</p>
+            </div>
+
+            <!-- Preview -->
+            <div id="quiz-preview" class="preview-section hidden">
+                <h3>Preview (<span id="preview-count">0</span> questions)</h3>
+                <div id="preview-list"></div>
+                <button class="btn btn-success" onclick="saveQuiz()" style="margin-top: 20px;">Save Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🔥 FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBiL71yGgcPtDPHodtVTm4Ab0BtJIEokA",
+            authDomain: "quiz-app-95b33.firebaseapp.com",
+            projectId: "quiz-app-95b33",
+            storageBucket: "quiz-app-95b33.firebasestorage.app",
+            messagingSenderId: "717714444581",
+            appId: "1:717714444581:web:af0ea509f3bbe7d5f60acc",
+            measurementId: "G-2RJE4KGZTE"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // State
+        let currentPath = [];
+        let currentQuestions = [];
+
+        // Initialize
+        window.onload = function() {
+            loadHome();
+        };
+
+        // Navigation
+        function goHome() {
+            currentPath = [];
+            loadHome();
+        }
+
+        function loadHome() {
+            updateBreadcrumb();
+            const container = document.getElementById('main-content');
+            
+            db.collection('folders').where('parentId', '==', null).get().then(snapshot => {
+                let html = `
+                    <div class="section">
+                        <div class="add-buttons">
+                            <button class="btn btn-primary" onclick="openModal('folder-modal')">📁 Add Year/Semester</button>
+                        </div>
+                        <h2>Years / Main Categories</h2>
+                        <div class="folders-grid">
+                `;
+                
+                if (snapshot.empty) {
+                    html += `
+                        <div class="empty-state">
+                            <h3>No folders yet</h3>
+                            <p>Click "Add Year/Semester" to create Year 1, Year 2, etc.</p>
+                        </div>
+                    `;
+                } else {
+                    snapshot.forEach(doc => {
+                        const folder = doc.data();
+                        html += createFolderCard(doc.id, folder);
+                    });
+                }
+                
+                html += '</div></div>';
+                container.innerHTML = html;
+            });
+        }
+
+        function openFolder(folderId, folderName) {
+            currentPath.push({ id: folderId, name: folderName });
+            loadCurrentFolder();
+        }
+
+        function loadCurrentFolder() {
+            updateBreadcrumb();
+            const currentFolder = currentPath[currentPath.length - 1];
+            
+            db.collection('folders').where('parentId', '==', currentFolder.id).get().then(foldersSnapshot => {
+                db.collection('quizzes').where('folderId', '==', currentFolder.id).get().then(quizzesSnapshot => {
+                    let html = `
+                        <div class="section">
+                            <div class="add-buttons">
+                                <button class="btn btn-primary" onclick="openModal('folder-modal')">📁 Add Subfolder</button>
+                                <button class="btn btn-success" onclick="openModal('quiz-modal')">📝 Add Quiz</button>
+                            </div>
+                            <h2>${currentFolder.name}</h2>
+                    `;
+                    
+                    // Subfolders
+                    if (!foldersSnapshot.empty) {
+                        html += '<h3 style="margin: 20px 0 15px; color: #666;">Folders</h3><div class="folders-grid">';
+                        foldersSnapshot.forEach(doc => {
+                            const folder = doc.data();
+                            html += createFolderCard(doc.id, folder);
+                        });
+                        html += '</div>';
+                    }
+                    
+                    // Quizzes
+                    if (!quizzesSnapshot.empty) {
+                        html += '<h3 style="margin: 30px 0 15px; color: #666;">Quizzes</h3><div class="folders-grid">';
+                        quizzesSnapshot.forEach(doc => {
+                            const quiz = doc.data();
+                            html += createQuizCard(doc.id, quiz);
+                        });
+                        html += '</div>';
+                    }
+                    
+                    if (foldersSnapshot.empty && quizzesSnapshot.empty) {
+                        html += `
+                            <div class="empty-state">
+                                <h3>This folder is empty</h3>
+                                <p>Add subfolders or quizzes to get started</p>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                    document.getElementById('main-content').innerHTML = html;
+                });
+            });
+        }
+
+        function createFolderCard(id, folder) {
+            return `
+                <div class="folder-card" onclick="openFolder('${id}', '${folder.name}')">
+                    <button class="delete-btn" onclick="event.stopPropagation(); deleteFolder('${id}')">×</button>
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-name">${folder.name}</div>
+                    <span class="type-badge type-folder">Folder</span>
+                </div>
+            `;
+        }
+
+        function createQuizCard(id, quiz) {
+            return `
+                <div class="folder-card" onclick="viewQuiz('${id}')">
+                    <button class="delete-btn" onclick="event.stopPropagation(); deleteQuiz('${id}')">×</button>
+                    <div class="folder-icon">📝</div>
+                    <div class="folder-name">${quiz.title}</div>
+                    <div class="folder-meta">${quiz.questionCount || 0} questions</div>
+                    <span class="type-badge type-quiz">Quiz</span>
+                </div>
+            `;
+        }
+
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            let html = '<a href="#" onclick="goHome()">🏠 Home</a>';
+            
+            currentPath.forEach((item, index) => {
+                html += ' > ';
+                if (index === currentPath.length - 1) {
+                    html += `<span class="current">${item.name}</span>`;
+                } else {
+                    html += `<a href="#" onclick="navigateTo(${index})">${item.name}</a>`;
+                }
+            });
+            
+            breadcrumb.innerHTML = html;
+        }
+
+        function navigateTo(index) {
+            currentPath = currentPath.slice(0, index + 1);
+            loadCurrentFolder();
+        }
+
+        // Modals
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            // Reset forms
+            if (modalId === 'quiz-modal') {
+                document.getElementById('quiz-title').value = '';
+                document.getElementById('paste-text').value = '';
+                document.getElementById('quiz-file').value = '';
+                document.getElementById('quiz-preview').classList.add('hidden');
+                currentQuestions = [];
+            }
+        }
+
+        // Create Folder
+        function createFolder() {
+            const name = document.getElementById('folder-name').value.trim();
+            if (!name) {
+                alert('Please enter folder name');
+                return;
+            }
+            
+            const parentId = currentPath.length > 0 ? currentPath[currentPath.length - 1].id : null;
+            
+            db.collection('folders').add({
+                name: name,
+                parentId: parentId,
+                createdAt: new Date()
+            }).then(() => {
+                closeModal('folder-modal');
+                document.getElementById('folder-name').value = '';
+                if (currentPath.length === 0) {
+                    loadHome();
+                } else {
+                    loadCurrentFolder();
+                }
+            });
+        }
+
+        // Quiz Tabs
+        function showQuizTab(tab) {
+            document.querySelectorAll('.quiz-tab').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('#quiz-modal .tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById(`quiz-${tab}`).classList.remove('hidden');
+            event.target.classList.add('active');
+        }
+
+        // File Upload
+        function handleQuizFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parseQuestions(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse Text
+        function parsePastedText() {
+            const text = document.getElementById('paste-text').value;
+            if (!text.trim()) {
+                alert('Please paste some text');
+                return;
+            }
+            parseQuestions(text);
+        }
+
+        function parseQuestions(text) {
+            currentQuestions = [];
+            const blocks = text.split(/\n\s*\n/);
+            
+            blocks.forEach(block => {
+                const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
+                if (lines.length < 6) return;
+                
+                const qMatch = lines[0].match(/^Question:\s*(.+)/i);
+                if (!qMatch) return;
+                
+                const question = qMatch[1];
+                const options = [];
+                
+                for (let i = 1; i <= 4; i++) {
+                    const match = lines[i].match(/^[A-D]\)\s*(.+)/i);
+                    if (match) options.push(match[1]);
+                }
+                
+                if (options.length !== 4) return;
+                
+                const correctMatch = lines.find(l => l.match(/^Correct:\s*([A-D])/i));
+                const correct = correctMatch ? correctMatch.match(/^Correct:\s*([A-D])/i)[1].toUpperCase() : 'A';
+                const correctAnswer = correct.charCodeAt(0) - 65;
+                
+                const expMatch = lines.find(l => l.match(/^Explanation:\s*(.+)/i));
+                const explanation = expMatch ? expMatch.match(/^Explanation:\s*(.+)/i)[1] : '';
+                
+                currentQuestions.push({ question, options, correctAnswer, explanation });
+            });
+            
+            showPreview();
+        }
+
+        function showPreview() {
+            document.getElementById('quiz-preview').classList.remove('hidden');
+            document.getElementById('preview-count').textContent = currentQuestions.length;
+            
+            const list = document.getElementById('preview-list');
+            list.innerHTML = currentQuestions.map((q, i) => `
+                <div class="question-preview">
+                    <strong>Q${i + 1}:</strong> ${q.question}<br>
+                    ${q.options.map((opt, idx) => `
+                        <span style="${idx === q.correctAnswer ? 'color: #4caf50; font-weight: bold;' : ''}">
+                            ${String.fromCharCode(65 + idx)}) ${opt} ${idx === q.correctAnswer ? '✓' : ''}
+                        </span><br>
+                    `).join('')}
+                    <small style="color: #666;">${q.explanation}</small>
+                </div>
+            `).join('');
+        }
+
+        // Save Quiz
+        function saveQuiz() {
+            const title = document.getElementById('quiz-title').value.trim();
+            if (!title) {
+                alert('Please enter quiz title');
+                return;
+            }
+            
+            if (currentQuestions.length === 0) {
+                alert('No questions to save');
+                return;
+            }
+            
+            const folderId = currentPath[currentPath.length - 1].id;
+            
+            db.collection('quizzes').add({
+                title: title,
+                folderId: folderId,
+                questionCount: currentQuestions.length,
+                createdAt: new Date()
+            }).then(docRef => {
+                const quizId = docRef.id;
+                let saved = 0;
+                
+                currentQuestions.forEach((q, index) => {
+                    db.collection('quizzes').doc(quizId).collection('questions').add({
+                        ...q,
+                        order: index,
+                        createdAt: new Date()
+                    }).then(() => {
+                        saved++;
+                        if (saved === currentQuestions.length) {
+                            closeModal('quiz-modal');
+                            loadCurrentFolder();
+                        }
+                    });
+                });
+            });
+        }
+
+        // Delete
+        function deleteFolder(id) {
+            if (!confirm('Delete this folder and all its contents?')) return;
+            
+            // Recursively delete subfolders and quizzes
+            db.collection('folders').where('parentId', '==', id).get().then(snap => {
+                snap.forEach(doc => deleteFolder(doc.id));
+            });
+            
+            db.collection('quizzes').where('folderId', '==', id).get().then(snap => {
+                snap.forEach(doc => deleteQuiz(doc.id));
+            });
+            
+            db.collection('folders').doc(id).delete();
+            setTimeout(loadCurrentFolder, 500);
+        }
+
+        function deleteQuiz(id) {
+            if (!confirm('Delete this quiz?')) return;
+            
+            db.collection('quizzes').doc(id).collection('questions').get().then(snap => {
+                snap.forEach(doc => doc.ref.delete());
+            });
+            
+            db.collection('quizzes').doc(id).delete();
+            setTimeout(loadCurrentFolder, 500);
+        }
+
+        function viewQuiz(id) {
+            // For now, just alert. Can add edit functionality later
+            alert('Quiz ID: ' + id + '\nUse Student View to take the quiz');
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

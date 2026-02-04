@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Quiz Platform</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+        }
+
+        .breadcrumb {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+
+        .breadcrumb a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .folder-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .folder-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .folder-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .folder-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .quiz-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quiz-card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .question-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-right: 5px solid #667eea;
+        }
+
+        .option {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .option.correct {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+
+        .option.wrong {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .result-container {
+            text-align: center;
+            padding: 50px;
+        }
+
+        .result-score {
+            font-size: 4em;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🩺 Medical Quiz Platform</h1>
+            <p>Select your year, semester, and subject to start</p>
+        </div>
+
+        <div class="breadcrumb" id="breadcrumb">
+            <a href="#" onclick="goHome()">Home</a>
+        </div>
+
+        <div id="main-content"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBiL71yGgcPtDPHodtVTm4Ab0BtJIEokA",
+            authDomain: "quiz-app-95b33.firebaseapp.com",
+            projectId: "quiz-app-95b33",
+            storageBucket: "quiz-app-95b33.firebasestorage.app",
+            messagingSenderId: "717714444581",
+            appId: "1:717714444581:web:af0ea509f3bbe7d5f60acc",
+            measurementId: "G-2RJE4KGZTE"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentPath = [];
+        let currentQuestions = [];
+        let userAnswers = {};
+        let correctCount = 0;
+
+        window.onload = function() {
+            loadHome();
+        };
+
+        function goHome() {
+            currentPath = [];
+            loadHome();
+        }
+
+        function loadHome() {
+            updateBreadcrumb();
+            db.collection('folders').where('parentId', '==', null).get().then(snapshot => {
+                let html = '<div class="section"><h2>Select Year</h2><div class="folders-grid">';
+                
+                if (snapshot.empty) {
+                    html += '<p>No content available yet.</p>';
+                } else {
+                    snapshot.forEach(doc => {
+                        const folder = doc.data();
+                        html += `
+                            <div class="folder-card" onclick="openFolder('${doc.id}', '${folder.name}')">
+                                <div class="folder-icon">📁</div>
+                                <div class="folder-name">${folder.name}</div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += '</div></div>';
+                document.getElementById('main-content').innerHTML = html;
+            });
+        }
+
+        function openFolder(folderId, folderName) {
+            currentPath.push({ id: folderId, name: folderName, type: 'folder' });
+            loadCurrentFolder();
+        }
+
+        function loadCurrentFolder() {
+            updateBreadcrumb();
+            const current = currentPath[currentPath.length - 1];
+            
+            db.collection('folders').where('parentId', '==', current.id).get().then(foldersSnap => {
+                db.collection('quizzes').where('folderId', '==', current.id).get().then(quizzesSnap => {
+                    let html = `<div class="section"><h2>${current.name}</h2>`;
+                    
+                    if (!foldersSnap.empty) {
+                        html += '<h3 style="margin: 20px 0;">Folders</h3><div class="folders-grid">';
+                        foldersSnap.forEach(doc => {
+                            const folder = doc.data();
+                            html += `
+                                <div class="folder-card" onclick="openFolder('${doc.id}', '${folder.name}')">
+                                    <div class="folder-icon">📁</div>
+                                    <div class="folder-name">${folder.name}</div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    if (!quizzesSnap.empty) {
+                        html += '<h3 style="margin: 30px 0 20px;">Available Quizzes</h3><div class="folders-grid">';
+                        quizzesSnap.forEach(doc => {
+                            const quiz = doc.data();
+                            html += `
+                                <div class="quiz-card" onclick="startQuiz('${doc.id}', '${quiz.title}')">
+                                    <h3>📝 ${quiz.title}</h3>
+                                    <p>${quiz.questionCount || 0} questions</p>
+                                    <button class="btn" style="margin-top: 15px;">Start Quiz</button>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                    document.getElementById('main-content').innerHTML = html;
+                });
+            });
+        }
+
+        function startQuiz(quizId, title) {
+            currentPath.push({ id: quizId, name: title, type: 'quiz' });
+            updateBreadcrumb();
+            
+            db.collection('quizzes').doc(quizId).collection('questions').orderBy('order').get().then(snapshot => {
+                currentQuestions = [];
+                snapshot.forEach(doc => {
+                    currentQuestions.push(doc.data());
+                });
+                
+                if (currentQuestions.length === 0) {
+                    alert('No questions in this quiz');
+                    return;
+                }
+                
+                renderQuiz(title);
+            });
+        }
+
+        function renderQuiz(title) {
+            let html = `
+                <div class="section">
+                    <h2>${title}</h2>
+                    <div id="questions-container">
+            `;
+            
+            currentQuestions.forEach((q, index) => {
+                html += `
+                    <div class="question-card">
+                        <h3>Question ${index + 1}: ${q.question}</h3>
+                        <div id="options-${index}">
+                            ${q.options.map((opt, i) => `
+                                <div class="option" onclick="selectAnswer(${index}, ${i}, ${q.correctAnswer})">
+                                    ${String.fromCharCode(65 + i)}) ${opt}
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div id="explanation-${index}" style="display: none; margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 10px;">
+                            <strong>Explanation:</strong> ${q.explanation || 'No explanation'}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button class="btn" onclick="finishQuiz()">Finish Quiz</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('main-content').innerHTML = html;
+            userAnswers = {};
+            correctCount = 0;
+        }
+
+        function selectAnswer(qIndex, selected, correct) {
+            if (userAnswers[qIndex] !== undefined) return;
+            userAnswers[qIndex] = selected;
+            
+            const options = document.getElementById(`options-${qIndex}`).children;
+            
+            if (selected === correct) {
+                options[selected].classList.add('correct');
+                correctCount++;
+            } else {
+                options[selected].classList.add('wrong');
+                options[correct].classList.add('correct');
+            }
+            
+            document.getElementById(`explanation-${qIndex}`).style.display = 'block';
+        }
+
+        function finishQuiz() {
+            const total = currentQuestions.length;
+            const answered = Object.keys(userAnswers).length;
+            
+            if (answered < total && !confirm(`You have ${total - answered} unanswered questions. Finish anyway?`)) {
+                return;
+            }
+            
+            const percent = Math.round((correctCount / total) * 100);
+            let msg = percent >= 90 ? 'Excellent! 🌟' : percent >= 70 ? 'Very Good! 👍' : percent >= 50 ? 'Good effort 💪' : 'Keep practicing 📚';
+            
+            const html = `
+                <div class="section result-container">
+                    <h2>🎉 Quiz Completed!</h2>
+                    <div class="result-score">${correctCount}/${total}</div>
+                    <p style="font-size: 1.3em; margin: 20px 0;">${msg}</p>
+                    <button class="btn" onclick="goHome()">Back to Home</button>
+                </div>
+            `;
+            
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            let html = '<a href="#" onclick="goHome()">🏠 Home</a>';
+            
+            currentPath.forEach((item, index) => {
+                html += ' > ';
+                if (index === currentPath.length - 1) {
+                    html += `<strong>${item.name}</strong>`;
+                } else {
+                    html += `<a href="#" onclick="navigateTo(${index})">${item.name}</a>`;
+                }
+            });
+            
+            breadcrumb.innerHTML = html;
+        }
+
+        function navigateTo(index) {
+            currentPath = currentPath.slice(0, index + 1);
+            if (currentPath[index].type === 'quiz') {
+                currentPath.pop();
+                loadCurrentFolder();
+            } else {
+                loadCurrentFolder();
+            }
+        }
+    </script>
+</body>
+</html>
